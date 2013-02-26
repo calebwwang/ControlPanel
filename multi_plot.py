@@ -16,8 +16,9 @@ Original inspiration for this demo from Bas van Dijk.
 
 # Major library imports
 import wx
-from numpy import arange,zeros,roll
+from numpy import arange,zeros,roll,ones
 from scipy.special import jn
+from scipy.signal import convolve
 import serial
 import io
 
@@ -211,8 +212,9 @@ class Controller(HasTraits):
 			self.viewer.plot.components[5].value.set_data(self.viewer.gyroz)
 			
 			self.viewer.batvol = roll(self.viewer.batvol,-1)
-			self.viewer.batvol[-1] = vals[6]
-			self.viewer.plot.components[6].value.set_data(self.viewer.batvol)
+			self.viewer.batvol[-1] = vals[6] * 25.0
+			smoothed_data = convolve(self.viewer.batvol,ones(10)/10, mode='same')
+			self.viewer.plot.components[6].value.set_data(smoothed_data)
 			for i in range(7):
 				self.viewer.plot.components[i].request_redraw()
 
