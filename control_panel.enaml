@@ -1,0 +1,100 @@
+from enaml.layout.api import hbox
+from enaml.widgets.api import Window, Container, PushButton, Field, ComboBox, Label, Form, Slider, ListItem, ListControl
+
+import robot_interface
+
+enamldef MotorMovePromptWindow(Window): content:
+	Form:
+		Label:
+			text = 'Motor'
+		ComboBox: motor_selection:
+			items = ['128','129','130']
+			index = 0
+		Label:
+			text = 'Speed'
+		Container:
+			padding = 0
+			constraints = [
+				hbox(lbl, sldr),
+				lbl.v_center == sldr.v_center,
+			]
+			Label:
+				id: lbl
+				text << '%d' % sldr.value
+				constraints = [width == 25]
+			Slider:
+				id: sldr
+				minimum = -127
+				maximum = 128
+
+		PushButton:
+			text = 'Send Command'
+			clicked ::
+				robot_interface.motor_move(motor_selection.selected_item, sldr.value)
+				content.close()
+
+enamldef RobotMovePromptWindow(Window): context:
+	Container:
+		pass
+
+enamldef ConsoleOutputWindow(Window): context:
+	Container:
+		pass
+
+enamldef GraphWindow(Window): context:
+	Container:
+		pass
+
+enamldef Main(Window): main:
+	title = 'Ballbot Control Panel'
+	attr console_window = None
+	attr graph_window = None
+	attr connected: bool = False
+	
+	Container:
+		PushButton:
+			text << 'Connect' if not main.connected else 'Disconnect'
+			checkable = True
+			toggled ::
+				main.connected = not main.connected
+		PushButton:
+			text = 'Show Console'
+			enabled << not main.console_window or not main.console_window.visible
+			clicked ::
+				title = 'Debug Console'
+				main.console_window = ConsoleOutputWindow(title=title)
+				session.add_window(console_window)
+		PushButton:
+			text = 'Show Graphs'
+			enabled << not main.graph_window or not main.graph_window.visible
+			clicked ::
+				title = 'Graphs'
+				main.graph_window = GraphWindow(title=title)
+				session.add_window(graph_window)
+		PushButton:
+			text = 'Motor Move'
+			clicked ::
+				title = 'Move Motor'
+				mod = 'application_modal'
+				win = MotorMovePromptWindow(title=title, modality=mod, always_on_top=True)
+				session.add_window(win)
+		PushButton:
+			text = 'Bot Move'
+			clicked ::
+				title = 'Move Robot'
+				mod = 'application_modal'
+				win = RobotMovePromptWindow(title=title, modality=mod, always_on_top=True)
+				session.add_window(win)
+		PushButton:
+			text = 'Enable Balance Mode'
+		ListControl:
+			constraints = [height==22]
+			ListItem:
+				text = 'EMERGENCY STOP'
+				font = 'bold 12pt Arial'
+				background = 'red'
+				foreground = 'yellow'
+				selectable = False
+				text_align = 'center'
+				double_clicked ::
+					print 'e-stop hit'
