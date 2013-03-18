@@ -1,7 +1,30 @@
 from enaml.layout.api import hbox
-from enaml.widgets.api import Window, Container, PushButton, Field, ComboBox, Label, Form, Slider, ListItem, ListControl
+from enaml.widgets.api import *
+
+from chaco.api import ArrayPlotData, Plot, add_default_axes
+
+from traits.api import HasTraits, Instance, Array
+
+from numpy import linspace
+from scipy.special import jn
 
 import robot_interface
+
+class TimeSeriesPlotModel(HasTraits):
+	plot = Instance(Plot)
+
+	data = Array
+
+	def __init__(self, **kwargs):
+		super(TimeSeriesPlotModel, self).__init__()
+
+		x = linspace(-5,10,100)
+
+		plot_data = ArrayPlotData(x=x,y=jn(0,x))
+		self.plot = Plot(plot_data)
+		self.plot.plot(("x","y"), type="line", color="blue")
+		add_default_axes(self.plot, vtitle="foo", htitle="bar")
+
 
 enamldef MotorMovePromptWindow(Window): content:
 	Form:
@@ -18,32 +41,68 @@ enamldef MotorMovePromptWindow(Window): content:
 				hbox(lbl, sldr),
 				lbl.v_center == sldr.v_center,
 			]
-			Label:
-				id: lbl
+			Label: lbl:
 				text << '%d' % sldr.value
 				constraints = [width == 25]
-			Slider:
-				id: sldr
+			Slider: sldr:
 				minimum = -127
 				maximum = 128
 
 		PushButton:
 			text = 'Send Command'
 			clicked ::
-				robot_interface.motor_move(motor_selection.selected_item, sldr.value)
+				robot_interface.motor_move(
+					motor_selection.selected_item, sldr.value)
 				content.close()
 
-enamldef RobotMovePromptWindow(Window): context:
-	Container:
-		pass
+enamldef RobotMovePromptWindow(Window): content:
+	Form:
+		Label:
+			text = 'Direction'
+		Container:
+			padding = 0
+			constraints = [
+				hbox(dirlbl, dirsldr),
+				dirlbl.v_center == dirsldr.v_center,
+			]
+			Label: dirlbl:
+				text << '%d' % dirsldr.value
+				constraints = [width == 25]
+			Slider: dirsldr:
+				minimum = 0
+				maximum = 359
+		Label:
+			text = 'Speed'
+		Container:
+			padding = 0
+			constraints = [
+				hbox(lbl, speedsldr),
+				lbl.v_center == speedsldr.v_center,
+			]
+			Label:
+				id: lbl
+				text << '%d' % speedsldr.value
+				constraints = [width == 25]
+			Slider:
+				id: speedsldr
+				minimum = -127
+				maximum = 128
+		PushButton:
+			text = 'Send Command'
+			clicked ::
+				robot_interface.robot_move(dirsldr.value, speedsldr.value)
+				content.close()
 
 enamldef ConsoleOutputWindow(Window): context:
 	Container:
 		pass
 
 enamldef GraphWindow(Window): context:
+	attr model = TimeSeriesPlotModel()
+	initial_size = (500,500)
 	Container:
-		pass
+		EnableCanvas:
+			component = model.plot
 
 enamldef Main(Window): main:
 	title = 'Ballbot Control Panel'
@@ -59,14 +118,16 @@ enamldef Main(Window): main:
 				main.connected = not main.connected
 		PushButton:
 			text = 'Show Console'
-			enabled << not main.console_window or not main.console_window.visible
+			enabled << not main.console_window \
+				or not main.console_window.visible
 			clicked ::
 				title = 'Debug Console'
 				main.console_window = ConsoleOutputWindow(title=title)
 				session.add_window(console_window)
 		PushButton:
 			text = 'Show Graphs'
-			enabled << not main.graph_window or not main.graph_window.visible
+			enabled << not main.graph_window \
+				or not main.graph_window.visible
 			clicked ::
 				title = 'Graphs'
 				main.graph_window = GraphWindow(title=title)
@@ -76,14 +137,16 @@ enamldef Main(Window): main:
 			clicked ::
 				title = 'Move Motor'
 				mod = 'application_modal'
-				win = MotorMovePromptWindow(title=title, modality=mod, always_on_top=True)
+				win = MotorMovePromptWindow(
+					title=title, modality=mod, always_on_top=True)
 				session.add_window(win)
 		PushButton:
 			text = 'Bot Move'
 			clicked ::
 				title = 'Move Robot'
 				mod = 'application_modal'
-				win = RobotMovePromptWindow(title=title, modality=mod, always_on_top=True)
+				win = RobotMovePromptWindow(
+					title=title, modality=mod, always_on_top=True)
 				session.add_window(win)
 		PushButton:
 			text = 'Enable Balance Mode'
@@ -97,4 +160,4 @@ enamldef Main(Window): main:
 				selectable = False
 				text_align = 'center'
 				double_clicked ::
-					print 'e-stop hit'
+					robot_interface.emergency_stop()
