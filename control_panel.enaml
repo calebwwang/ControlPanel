@@ -9,6 +9,7 @@ from numpy import linspace
 from scipy.special import jn
 
 import robot_interface
+import serial_connection
 
 class TimeSeriesPlotModel(HasTraits):
 	plot = Instance(Plot)
@@ -24,7 +25,6 @@ class TimeSeriesPlotModel(HasTraits):
 		self.plot = Plot(plot_data)
 		self.plot.plot(("x","y"), type="line", color="blue")
 		add_default_axes(self.plot, vtitle="foo", htitle="bar")
-
 
 enamldef MotorMovePromptWindow(Window): content:
 	Form:
@@ -116,6 +116,7 @@ enamldef Main(Window): main:
 			checkable = True
 			toggled ::
 				main.connected = not main.connected
+				serial_connection.SerialConnection().connection = main.connected
 		PushButton:
 			text = 'Show Console'
 			enabled << not main.console_window \
