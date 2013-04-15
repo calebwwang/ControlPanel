@@ -1,30 +1,9 @@
 from enaml.layout.api import hbox
 from enaml.widgets.api import *
-
-from chaco.api import ArrayPlotData, Plot, add_default_axes
-
-from traits.api import HasTraits, Instance, Array
-
-from numpy import linspace
-from scipy.special import jn
+from enaml.core.api import Looper
 
 import robot_interface
 import serial_connection
-
-class TimeSeriesPlotModel(HasTraits):
-	plot = Instance(Plot)
-
-	data = Array
-
-	def __init__(self, **kwargs):
-		super(TimeSeriesPlotModel, self).__init__()
-
-		x = linspace(-5,10,100)
-
-		plot_data = ArrayPlotData(x=x,y=jn(0,x))
-		self.plot = Plot(plot_data)
-		self.plot.plot(("x","y"), type="line", color="blue")
-		add_default_axes(self.plot, vtitle="foo", htitle="bar")
 
 enamldef MotorMovePromptWindow(Window): content:
 	Form:
@@ -51,7 +30,7 @@ enamldef MotorMovePromptWindow(Window): content:
 		PushButton:
 			text = 'Send Command'
 			clicked ::
-				robot_interface.motor_move(
+				robot_interface.RobotInterface().motor_move(
 					motor_selection.selected_item, sldr.value)
 				content.close()
 
@@ -90,19 +69,16 @@ enamldef RobotMovePromptWindow(Window): content:
 		PushButton:
 			text = 'Send Command'
 			clicked ::
-				robot_interface.robot_move(dirsldr.value, speedsldr.value)
+				robot_interface.RobotInterface().robot_move(
+					dirsldr.value, speedsldr.value)
 				content.close()
-
-enamldef ConsoleOutputWindow(Window): context:
-	Container:
-		pass
 
 enamldef GraphWindow(Window): context:
 	attr model = TimeSeriesPlotModel()
-	initial_size = (500,500)
+	initial_size = (500,1000)
 	Container:
 		EnableCanvas:
-			component = model.plot
+			component = robot_interface.RobotInterface().get_plots()
 
 enamldef Main(Window): main:
 	title = 'Ballbot Control Panel'
@@ -116,25 +92,20 @@ enamldef Main(Window): main:
 			checkable = True
 			toggled ::
 				main.connected = not main.connected
-				serial_connection.SerialConnection().connection = main.connected
-		PushButton:
-			text = 'Show Console'
-			enabled << not main.console_window \
-				or not main.console_window.visible
-			clicked ::
-				title = 'Debug Console'
-				main.console_window = ConsoleOutputWindow(title=title)
-				session.add_window(console_window)
+				serial_connection.SerialConnection().update_connection(
+					main.connected)
 		PushButton:
 			text = 'Show Graphs'
-			enabled << not main.graph_window \
-				or not main.graph_window.visible
+			enabled << ( (not main.graph_window \
+				or not main.graph_window.visible) and main.connected)
 			clicked ::
 				title = 'Graphs'
 				main.graph_window = GraphWindow(title=title)
 				session.add_window(graph_window)
+
 		PushButton:
 			text = 'Motor Move'
+			enabled << main.connected
 			clicked ::
 				title = 'Move Motor'
 				mod = 'application_modal'
@@ -143,6 +114,7 @@ enamldef Main(Window): main:
 				session.add_window(win)
 		PushButton:
 			text = 'Bot Move'
+			enabled << main.connected
 			clicked ::
 				title = 'Move Robot'
 				mod = 'application_modal'
@@ -151,6 +123,7 @@ enamldef Main(Window): main:
 				session.add_window(win)
 		PushButton:
 			text = 'Enable Balance Mode'
+			enabled << main.connected
 		ListControl:
 			constraints = [height==22]
 			ListItem:
@@ -161,4 +134,4 @@ enamldef Main(Window): main:
 				selectable = False
 				text_align = 'center'
 				double_clicked ::
-					robot_interface.emergency_stop()
+					robot_interface.RobotInterface().emergency_stop()

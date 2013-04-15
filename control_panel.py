@@ -1,15 +1,25 @@
+import os
+os.environ['ETS_TOOLKIT'] = 'qt4'
+
 import enaml
 from enaml.stdlib.sessions import simple_session
 from enaml.qt.qt_application import QtApplication
 from enaml.qt.qt.QtCore import QTimer, SIGNAL
 
-import os
-os.environ['ETS_TOOLKIT'] = 'qt4'
-
 import serial_connection
+import robot_interface
+
+robot = robot_interface.RobotInterface()
 
 def update():
-	print serial_connection.SerialConnection().connection
+	conn = serial_connection.SerialConnection();
+	if conn.is_connected():
+		commandstr = conn.poll()
+		if commandstr:
+			robot.log(commandstr)
+
+from PySide.QtCore import *
+from PySide.QtGui import *
 
 if __name__ == '__main__':
 	with enaml.imports():
@@ -19,7 +29,7 @@ if __name__ == '__main__':
 
 	timer = QTimer()
 	timer.connect(timer, SIGNAL("timeout()"), update)
-	timer.start(1000)
+	timer.start(10)
 
 	app.start_session('main')
 	app.start()
